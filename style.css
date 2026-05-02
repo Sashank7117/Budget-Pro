@@ -130,6 +130,7 @@ a { text-decoration: none; color: inherit; }
 }
 .nav-brand h1 { font-size: 20px; font-weight: 800; }
 .mobile-close { display: none; background: transparent; border: none; font-size: 24px; color: var(--text-muted); cursor: pointer; }
+.mobile-close i { pointer-events: none; }
 
 .sidebar-nav { display: flex; flex-direction: column; gap: 8px; }
 .nav-item a {
