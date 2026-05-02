@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Pro | Professional Dashboard</title>
+    <!-- Google Fonts: Plus Jakarta Sans for modern dashboard look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="light-mode">
+    
+    <!-- Auth/Login Screen -->
+    <div id="login-screen" class="auth-screen">
+        <div class="auth-card fade-in-up">
+            <div class="auth-header">
+                <div class="logo-box">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <h2>Welcome to Budget Pro</h2>
+                <p id="auth-subtitle">Create an account or login to sync your data locally.</p>
+            </div>
+            <form id="auth-form" action="javascript:void(0);" method="POST">
+                <div class="input-field">
+                    <label>Username</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-user icon"></i>
+                        <input type="text" id="username" name="username" placeholder="Enter username" autocomplete="username" required>
+                    </div>
+                </div>
+                <div class="input-field">
+                    <label>Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock icon"></i>
+                        <input type="password" id="password" name="password" placeholder="Enter password" autocomplete="current-password" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block ripple">Continue to Dashboard</button>
+            </form>
+            <div class="auth-footer">
+                <small><i class="fas fa-info-circle"></i> Data is stored securely in your browser's Local Storage.</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Layout (Sidebar + Main Content) -->
+    <div id="app-layout" class="layout-wrapper hidden">
+        
+        <!-- Sidebar -->
+        <aside class="sidebar slide-in-left">
+            <div class="sidebar-header">
+                <div class="nav-brand">
+                    <div class="brand-icon"><i class="fas fa-wallet"></i></div>
+                    <h1>Budget Pro</h1>
+                </div>
+                <button class="mobile-close" id="mobile-menu-close"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <ul class="sidebar-nav">
+                <li class="nav-item active"><a href="#"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
+                <li class="nav-item"><a href="#" id="download-csv-btn"><i class="fas fa-file-export"></i> Export CSV</a></li>
+                <li class="nav-item"><a href="#" id="reset-month-btn" class="text-danger"><i class="fas fa-rotate-left"></i> Reset Month</a></li>
+            </ul>
+
+            <div class="sidebar-spacer"></div>
+
+            <ul class="sidebar-nav bottom-nav">
+                <li class="nav-item"><a href="#" id="theme-toggle-btn"><i class="fas fa-moon"></i> <span id="theme-text">Dark Mode</span></a></li>
+                <li class="nav-item"><a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
+
+            <div class="user-profile">
+                <div class="avatar"><i class="fas fa-user"></i></div>
+                <div class="user-details">
+                    <h4 id="display-user-name">User</h4>
+                    <span>Local Account</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Mobile Header -->
+            <header class="mobile-header hide-desktop fade-in">
+                <button id="mobile-menu-open" class="btn-icon"><i class="fas fa-bars"></i></button>
+                <div class="brand-snug">Budget Pro</div>
+                <div class="avatar-sm"><i class="fas fa-user"></i></div>
+            </header>
+
+            <div class="content-padding">
+                
+                <!-- Page Header with Salary Input -->
+                <div class="page-header fade-in">
+                    <div>
+                        <h2 class="page-title">Overview</h2>
+                        <p class="page-subtitle">Track your spending for <span class="text-primary font-bold" id="current-month-text">January</span></p>
+                    </div>
+                    
+                    <div class="salary-editor glass-panel">
+                        <label for="monthly-salary"><i class="fas fa-money-bill-wave"></i> Set Monthly Income</label>
+                        <div class="currency-input">
+                            <span>₹</span>
+                            <input type="number" id="monthly-salary" value="15000">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Budget Progress -->
+                <div class="budget-progress-container fade-in delay-1">
+                    <div class="progress-labels">
+                        <span>Budget Consumed</span>
+                        <span id="progress-percent">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="budget-progress-bar"></div>
+                    </div>
+                </div>
+
+                <!-- Monthly Tabs -->
+                <div class="tabs-container fade-in delay-1">
+                    <button class="scroll-btn left"><i class="fas fa-chevron-left"></i></button>
+                    <div class="tabs-wrapper" id="months-tabs">
+                        <!-- JS injected tabs -->
+                    </div>
+                    <button class="scroll-btn right"><i class="fas fa-chevron-right"></i></button>
+                </div>
+
+                <!-- Metrics Cards -->
+                <div class="metrics-grid fade-in delay-2">
+                    <div class="metric-card theme-purple">
+                        <div class="metric-icon"><i class="fas fa-piggy-bank"></i></div>
+                        <div class="metric-content">
+                            <span class="metric-label">Total Planned</span>
+                            <h3 class="metric-value counter" id="summary-planned">₹0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card theme-blue">
+                        <div class="metric-icon"><i class="fas fa-cart-arrow-down"></i></div>
+                        <div class="metric-content">
+                            <span class="metric-label">Actual Expenses</span>
+                            <h3 class="metric-value counter" id="summary-actual">₹0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card theme-green" id="card-balance">
+                        <div class="metric-icon"><i class="fas fa-wallet"></i></div>
+                        <div class="metric-content">
+                            <span class="metric-label">Remaining Balance</span>
+                            <h3 class="metric-value counter" id="summary-balance">₹15,000</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card theme-orange">
+                        <div class="metric-icon"><i class="fas fa-vault"></i></div>
+                        <div class="metric-content">
+                            <span class="metric-label">Projected Savings</span>
+                            <h3 class="metric-value counter" id="summary-savings">₹0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desktop Grid: Table + Chart -->
+                <div class="dashboard-grid fade-in delay-3">
+                    
+                    <!-- Editable Table Section -->
+                    <div class="table-card glass-panel">
+                        <div class="card-header">
+                            <h3><i class="fas fa-list-check"></i> Budget Categories</h3>
+                            <button id="add-expense-btn" class="btn btn-primary-soft btn-sm">
+                                <i class="fas fa-plus"></i> Add Row
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="budget-table">
+                                <thead>
+                                    <tr>
+                                        <th>Category (Editable)</th>
+                                        <th>Planned (₹)</th>
+                                        <th>Actual (₹)</th>
+                                        <th>Status</th>
+                                        <th>Done</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-body">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Charts Section -->
+                    <div class="charts-column">
+                        <div class="chart-card glass-panel mb-4">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-pie"></i> Distribution</h3>
+                            </div>
+                            <div class="chart-wrapper chart-sm">
+                                <canvas id="doughnutChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-card glass-panel">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-bar"></i> Planned vs Actual</h3>
+                            </div>
+                            <div class="chart-wrapper chart-sm">
+                                <canvas id="expenseChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
