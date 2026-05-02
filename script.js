@@ -166,20 +166,52 @@ function setupEventListeners() {
     // Mobile Sidebar
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.getElementById('sidebar-overlay');
+    const openBtn = document.getElementById('mobile-menu-open');
+    const closeBtn = document.getElementById('mobile-menu-close');
 
     function openSidebar() {
+        console.log("Sidebar opened - 'open' class added");
         sidebar.classList.add('open');
-        overlay.classList.remove('hidden');
+        if (overlay) overlay.classList.remove('hidden');
     }
 
     function closeSidebar() {
+        console.log("Sidebar closed - 'open' class removed");
         sidebar.classList.remove('open');
-        overlay.classList.add('hidden');
+        if (overlay) overlay.classList.add('hidden');
     }
 
-    document.getElementById('mobile-menu-open').addEventListener('click', openSidebar);
-    document.getElementById('mobile-menu-close').addEventListener('click', closeSidebar);
-    overlay.addEventListener('click', closeSidebar);
+    if (openBtn) {
+        openBtn.addEventListener('click', (e) => {
+            console.log("Open button clicked");
+            openSidebar();
+        });
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+            console.log("Close button clicked");
+            closeSidebar();
+        });
+    }
+
+    if (overlay) {
+        overlay.addEventListener('click', (e) => {
+            console.log("Overlay clicked");
+            closeSidebar();
+        });
+    }
+
+    // Improve UX: Close sidebar when clicking any menu item
+    const navLinks = document.querySelectorAll('.sidebar-nav .nav-item a');
+    navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            if (sidebar.classList.contains('open')) {
+                console.log("Nav link clicked, closing sidebar");
+                closeSidebar();
+            }
+        });
+    });
 
     // Global Salary Edit
     document.getElementById('monthly-salary').addEventListener('input', (e) => {
