@@ -54,6 +54,9 @@
     <!-- App Layout (Sidebar + Main Content) -->
     <div id="app-layout" class="layout-wrapper hidden">
         
+        <!-- Sidebar Overlay -->
+        <div id="sidebar-overlay" class="overlay hidden"></div>
+        
         <!-- Sidebar -->
         <aside class="sidebar slide-in-left">
             <div class="sidebar-header">
@@ -65,16 +68,16 @@
             </div>
             
             <ul class="sidebar-nav">
-                <li class="nav-item active"><a href="#"><i class="fas fa-chart-pie"></i> Dashboard</a></li>
-                <li class="nav-item"><a href="#" id="download-csv-btn"><i class="fas fa-file-export"></i> Export CSV</a></li>
-                <li class="nav-item"><a href="#" id="reset-month-btn" class="text-danger"><i class="fas fa-rotate-left"></i> Reset Month</a></li>
+                <li class="nav-item active"><a href="#"><i class="fas fa-chart-pie"></i> <span>Dashboard</span></a></li>
+                <li class="nav-item"><a href="#" id="download-csv-btn"><i class="fas fa-file-export"></i> <span>Export CSV</span></a></li>
+                <li class="nav-item"><a href="#" id="reset-month-btn" class="text-danger"><i class="fas fa-rotate-left"></i> <span>Reset Month</span></a></li>
             </ul>
 
             <div class="sidebar-spacer"></div>
 
             <ul class="sidebar-nav bottom-nav">
                 <li class="nav-item"><a href="#" id="theme-toggle-btn"><i class="fas fa-moon"></i> <span id="theme-text">Dark Mode</span></a></li>
-                <li class="nav-item"><a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                <li class="nav-item"><a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
             </ul>
 
             <div class="user-profile">
