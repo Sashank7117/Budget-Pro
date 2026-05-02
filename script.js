@@ -165,8 +165,21 @@ function setupEventListeners() {
 
     // Mobile Sidebar
     const sidebar = document.querySelector('.sidebar');
-    document.getElementById('mobile-menu-open').addEventListener('click', () => sidebar.classList.add('open'));
-    document.getElementById('mobile-menu-close').addEventListener('click', () => sidebar.classList.remove('open'));
+    const overlay = document.getElementById('sidebar-overlay');
+
+    function openSidebar() {
+        sidebar.classList.add('open');
+        overlay.classList.remove('hidden');
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove('open');
+        overlay.classList.add('hidden');
+    }
+
+    document.getElementById('mobile-menu-open').addEventListener('click', openSidebar);
+    document.getElementById('mobile-menu-close').addEventListener('click', closeSidebar);
+    overlay.addEventListener('click', closeSidebar);
 
     // Global Salary Edit
     document.getElementById('monthly-salary').addEventListener('input', (e) => {
@@ -280,20 +293,20 @@ function renderTable() {
         row.dataset.index = index;
         
         row.innerHTML = `
-            <td class="td-category" contenteditable="true" spellcheck="false" title="Click to edit">${item.category}</td>
-            <td>
+            <td class="td-category" contenteditable="true" spellcheck="false" title="Click to edit" data-label="Category">${item.category}</td>
+            <td data-label="Planned">
                 <input type="number" min="0" class="td-input input-planned" value="${item.planned || 0}">
             </td>
-            <td>
+            <td data-label="Actual">
                 <input type="number" min="0" class="td-input input-actual" value="${item.actual || 0}">
             </td>
-            <td>
+            <td data-label="Status">
                 <button class="status-btn ${item.status === 'Done' ? 'status-done' : 'status-pending'}">${item.status}</button>
             </td>
-            <td>
+            <td data-label="Done">
                 <input type="checkbox" class="custom-checkbox complete-toggle" ${item.complete ? 'checked' : ''}>
             </td>
-            <td>
+            <td data-label="Actions">
                 <button class="action-btn delete-btn" title="Delete Row"><i class="fas fa-trash-alt"></i></button>
             </td>
         `;
