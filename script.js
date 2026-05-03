@@ -136,6 +136,7 @@ function initializeMonthStructure(monthName) {
     }));
 }
 
+let chartUpdateTimeout = null;
 function saveUserData() {
     if(!activeUser) return;
     localStorage.setItem(getUserStorageKey(), JSON.stringify({
@@ -144,7 +145,12 @@ function saveUserData() {
         data: appState.data
     }));
     updateCalculations();
-    updateCharts();
+    
+    // Debounce chart updates to improve typing performance on mobile
+    if (chartUpdateTimeout) clearTimeout(chartUpdateTimeout);
+    chartUpdateTimeout = setTimeout(() => {
+        updateCharts();
+    }, 300);
 }
 
 // ==========================================
@@ -606,4 +612,3 @@ function showToast(message, type = 'success') {
 
 // Boot up
 window.addEventListener('DOMContentLoaded', init);
-    
