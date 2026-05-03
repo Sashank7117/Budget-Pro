@@ -337,7 +337,7 @@ tr.row-pending td { border-left: 3px solid var(--danger); box-shadow: inset 3px 
     .input-wrapper input, .currency-input input { min-height: 44px; }
     .td-input { width: 100%; min-height: 44px; text-align: right; }
     
-    .sidebar { position: fixed; transform: translateX(-100%); z-index: 100; height: 100vh; }
+    .sidebar { position: fixed; transform: translateX(-100%); z-index: 100; height: 100vh; animation: none; }
     .sidebar.open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
     
     .layout-wrapper { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
@@ -378,4 +378,3 @@ tr.row-pending td { border-left: 3px solid var(--danger); box-shadow: inset 3px 
     .chart-sm { height: 240px; }
     .auth-card { padding: 32px 20px; }
 }
-   
