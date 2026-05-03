@@ -606,3 +606,4 @@ function showToast(message, type = 'success') {
 
 // Boot up
 window.addEventListener('DOMContentLoaded', init);
+    
