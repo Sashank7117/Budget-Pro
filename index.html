@@ -1,608 +1,232 @@
-// Constants and Data Defaults
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const DEFAULT_CATEGORIES = [
-    'Housing / Rent', 'Groceries', 'Utilities', 'Transportation', 
-    'Healthcare', 'Insurance', 'Savings', 'Entertainment', 'Miscellaneous'
-];
-const CHART_COLORS = [
-    '#4f46e5', '#10b981', '#f59e0b', '#ef4444', 
-    '#8b5cf6', '#06b6d4', '#f43f5e', '#84cc16', '#64748b'
-];
-
-let appState = {
-    theme: 'light',
-    currentMonth: MONTHS[new Date().getMonth()],
-    globalSalary: 15000,
-    data: {} 
-    // Format: { 'January': [{ id, category, planned, actual, status, complete }], ... }
-};
-
-let chartInstance = null;
-let doughnutChartInstance = null;
-let activeUser = null;
-
-// ==========================================
-// Initialization & Auth
-// ==========================================
-function init() {
-    setupEventListeners();
-    checkAuth();
-}
-
-function checkAuth() {
-    // Check local storage for persistent login
-    const sessionUser = localStorage.getItem('budgetProActiveUser');
-    if (sessionUser) {
-        activeUser = JSON.parse(sessionUser);
-        document.getElementById('display-user-name').textContent = activeUser.username;
-        loadUserData();
-        showDashboard();
-    } else {
-        showLogin();
-    }
-}
-
-function handleLogin(e) {
-    e.preventDefault();
-    const user = document.getElementById('username').value.trim();
-    const pass = document.getElementById('password').value.trim();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Pro | Professional Dashboard</title>
+    <!-- Google Fonts: Plus Jakarta Sans for modern dashboard look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="light-mode">
     
-    if(!user || !pass) return showToast('Please enter both fields', 'error');
+    <!-- Auth/Login Screen -->
+    <div id="login-screen" class="auth-screen">
+        <div class="auth-card fade-in-up">
+            <div class="auth-header">
+                <div class="logo-box">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <h2>Welcome to Budget Pro</h2>
+                <p id="auth-subtitle">Create an account or login to sync your data locally.</p>
+            </div>
+            <form id="auth-form" action="javascript:void(0);" method="POST">
+                <div class="input-field">
+                    <label>Username</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-user icon"></i>
+                        <input type="text" id="username" name="username" placeholder="Enter username" autocomplete="username" required>
+                    </div>
+                </div>
+                <div class="input-field">
+                    <label>Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock icon"></i>
+                        <input type="password" id="password" name="password" placeholder="Enter password" autocomplete="current-password" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block ripple">Continue to Dashboard</button>
+            </form>
+            <div class="auth-footer">
+                <small><i class="fas fa-info-circle"></i> Data is stored securely in your browser's Local Storage.</small>
+            </div>
+        </div>
+    </div>
 
-    // Simple local auth mechanism
-    let users = JSON.parse(localStorage.getItem('budgetProUsers') || '{}');
-    
-    if (users[user]) {
-        // User exists, check password
-        if(users[user].password === pass) {
-            loginSuccess(user);
-        } else {
-            showToast('Incorrect password for existing user.', 'error');
-        }
-    } else {
-        // Create new user
-        users[user] = { password: pass };
-        localStorage.setItem('budgetProUsers', JSON.stringify(users));
-        showToast('New account created locally!', 'success');
-        loginSuccess(user);
-    }
-}
-
-function loginSuccess(username) {
-    activeUser = { username };
-    localStorage.setItem('budgetProActiveUser', JSON.stringify(activeUser));
-    document.getElementById('display-user-name').textContent = username;
-    showDashboard();
-    loadUserData();
-    showToast(`Welcome, ${username}!`, 'success');
-}
-
-function logout() {
-    localStorage.removeItem('budgetProActiveUser');
-    activeUser = null;
-    showLogin();
-}
-
-function showLogin() {
-    document.getElementById('login-screen').classList.remove('hidden');
-    document.getElementById('app-layout').classList.add('hidden');
-}
-
-function showDashboard() {
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('app-layout').classList.remove('hidden');
-}
-
-// ==========================================
-// Data Management
-// ==========================================
-function getUserStorageKey() {
-    return `budgetProData_${activeUser.username}`;
-}
-
-function loadUserData() {
-    const saved = localStorage.getItem(getUserStorageKey());
-    if (saved) {
-        const parsed = JSON.parse(saved);
-        appState.globalSalary = parsed.globalSalary || 15000;
-        appState.theme = parsed.theme || 'light';
-        appState.data = parsed.data || {};
+    <!-- App Layout (Sidebar + Main Content) -->
+    <div id="app-layout" class="layout-wrapper hidden">
         
-        // Ensure all months exist
-        MONTHS.forEach(m => {
-            if(!appState.data[m]) initializeMonthStructure(m);
-        });
-    } else {
-        appState.globalSalary = 15000;
-        appState.data = {};
-        MONTHS.forEach(m => initializeMonthStructure(m));
-        saveUserData();
-    }
-    
-    applyTheme();
-    document.getElementById('monthly-salary').value = appState.globalSalary;
-    renderTabs();
-    updateDashboardUI();
-}
-
-function initializeMonthStructure(monthName) {
-    appState.data[monthName] = DEFAULT_CATEGORIES.map((cat, index) => ({
-        id: `item-${Date.now()}-${index}`,
-        category: cat,
-        planned: 0,
-        actual: 0,
-        status: 'Pending',
-        complete: false
-    }));
-}
-
-function saveUserData() {
-    if(!activeUser) return;
-    localStorage.setItem(getUserStorageKey(), JSON.stringify({
-        globalSalary: appState.globalSalary,
-        theme: appState.theme,
-        data: appState.data
-    }));
-    updateCalculations();
-    updateCharts();
-}
-
-// ==========================================
-// Event Listeners
-// ==========================================
-function setupEventListeners() {
-    // Auth
-    document.getElementById('auth-form').addEventListener('submit', handleLogin);
-    document.getElementById('logout-btn').addEventListener('click', logout);
-
-    // Theme (Dark/Light mode)
-    document.getElementById('theme-toggle-btn').addEventListener('click', (e) => {
-        e.preventDefault();
-        appState.theme = appState.theme === 'light' ? 'dark' : 'light';
-        applyTheme();
-        saveUserData();
-    });
-
-    // Mobile Sidebar
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    const openBtn = document.getElementById('mobile-menu-open');
-    const closeBtn = document.getElementById('mobile-menu-close');
-
-    function openSidebar() {
-        console.log("Sidebar opened - 'open' class added");
-        sidebar.classList.add('open');
-        if (overlay) overlay.classList.remove('hidden');
-    }
-
-    function closeSidebar() {
-        console.log("Sidebar closed - 'open' class removed");
-        sidebar.classList.remove('open');
-        if (overlay) overlay.classList.add('hidden');
-    }
-
-    if (openBtn) {
-        openBtn.addEventListener('click', (e) => {
-            console.log("Open button clicked");
-            openSidebar();
-        });
-    }
-
-    if (closeBtn) {
-        closeBtn.addEventListener('click', (e) => {
-            console.log("Close button clicked");
-            closeSidebar();
-        });
-    }
-
-    if (overlay) {
-        overlay.addEventListener('click', (e) => {
-            console.log("Overlay clicked");
-            closeSidebar();
-        });
-    }
-
-    // Improve UX: Close sidebar when clicking any menu item
-    const navLinks = document.querySelectorAll('.sidebar-nav .nav-item a');
-    navLinks.forEach(link => {
-        link.addEventListener('click', () => {
-            if (sidebar.classList.contains('open')) {
-                console.log("Nav link clicked, closing sidebar");
-                closeSidebar();
-            }
-        });
-    });
-
-    // Global Salary Edit
-    document.getElementById('monthly-salary').addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value);
-        appState.globalSalary = isNaN(val) || val < 0 ? 0 : val;
-        saveUserData();
-    });
-
-    // Reset Month with SweetAlert2
-    document.getElementById('reset-month-btn').addEventListener('click', (e) => {
-        e.preventDefault();
-        Swal.fire({
-            title: 'Reset Budget?',
-            text: `Are you sure you want to clear all data for ${appState.currentMonth}?`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#64748b',
-            confirmButtonText: 'Yes, clear it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                initializeMonthStructure(appState.currentMonth);
-                saveUserData();
-                renderTable();
-                showToast(`${appState.currentMonth} data cleared.`, 'success');
-            }
-        });
-    });
-
-    // Export CSV
-    document.getElementById('download-csv-btn').addEventListener('click', (e) => {
-        e.preventDefault();
-        downloadCSV();
-    });
-
-    // Add New Row
-    document.getElementById('add-expense-btn').addEventListener('click', () => {
-        const monthData = appState.data[appState.currentMonth];
-        monthData.push({
-            id: `item-${Date.now()}`,
-            category: 'New Category',
-            planned: 0, actual: 0, status: 'Pending', complete: false
-        });
-        saveUserData();
-        renderTable(); 
-        showToast('New row added.', 'success');
-    });
-
-    // Tab Scrolling
-    const tabsWrapper = document.getElementById('months-tabs');
-    document.querySelector('.scroll-btn.left').addEventListener('click', () => tabsWrapper.scrollBy({left: -200, behavior: 'smooth'}));
-    document.querySelector('.scroll-btn.right').addEventListener('click', () => tabsWrapper.scrollBy({left: 200, behavior: 'smooth'}));
-}
-
-// ==========================================
-// UI Rendering
-// ==========================================
-function applyTheme() {
-    const isDark = appState.theme === 'dark';
-    if(isDark) {
-        document.body.classList.add('dark-mode');
-        document.body.classList.remove('light-mode');
-        document.getElementById('theme-text').textContent = 'Light Mode';
-    } else {
-        document.body.classList.remove('dark-mode');
-        document.body.classList.add('light-mode');
-        document.getElementById('theme-text').textContent = 'Dark Mode';
-    }
-    if (chartInstance) updateCharts();
-}
-
-function renderTabs() {
-    const tabsContainer = document.getElementById('months-tabs');
-    tabsContainer.innerHTML = '';
-    
-    MONTHS.forEach(month => {
-        const btn = document.createElement('button');
-        btn.className = `tab-btn ${appState.currentMonth === month ? 'active' : ''}`;
-        btn.textContent = month;
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            appState.currentMonth = month;
-            updateDashboardUI();
-        });
-        tabsContainer.appendChild(btn);
-    });
-    
-    // Auto scroll to active tab
-    setTimeout(() => {
-        const activeTab = tabsContainer.querySelector('.active');
-        if(activeTab) activeTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }, 100);
-}
-
-function updateDashboardUI() {
-    document.getElementById('current-month-text').textContent = appState.currentMonth;
-    renderTable();
-    updateCalculations();
-}
-
-// Table Rendering
-function renderTable() {
-    const tbody = document.getElementById('table-body');
-    tbody.innerHTML = '';
-    const currentData = appState.data[appState.currentMonth];
-    
-    currentData.forEach((item, index) => {
-        const row = document.createElement('tr');
-        row.className = item.complete ? 'row-done' : 'row-pending';
-        row.dataset.index = index;
+        <!-- Sidebar Overlay -->
+        <div id="sidebar-overlay" class="overlay hidden"></div>
         
-        row.innerHTML = `
-            <td class="td-category" contenteditable="true" spellcheck="false" title="Click to edit" data-label="Category">${item.category}</td>
-            <td data-label="Planned">
-                <input type="number" min="0" class="td-input input-planned" value="${item.planned || 0}">
-            </td>
-            <td data-label="Actual">
-                <input type="number" min="0" class="td-input input-actual" value="${item.actual || 0}">
-            </td>
-            <td data-label="Status">
-                <button class="status-btn ${item.status === 'Done' ? 'status-done' : 'status-pending'}">${item.status}</button>
-            </td>
-            <td data-label="Done">
-                <input type="checkbox" class="custom-checkbox complete-toggle" ${item.complete ? 'checked' : ''}>
-            </td>
-            <td data-label="Actions">
-                <button class="action-btn delete-btn" title="Delete Row"><i class="fas fa-trash-alt"></i></button>
-            </td>
-        `;
-        tbody.appendChild(row);
-
-        // Bind inner listeners (Delegation could be used, but this is fine for ~10 rows)
-        const catNode = row.querySelector('.td-category');
-        catNode.addEventListener('blur', (e) => {
-            currentData[index].category = e.target.textContent.trim() || 'Unnamed';
-            saveUserData();
-        });
-
-        row.querySelector('.input-planned').addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value);
-            currentData[index].planned = isNaN(val) || val < 0 ? 0 : val;
-            saveUserData();
-        });
-
-        row.querySelector('.input-actual').addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value);
-            currentData[index].actual = isNaN(val) || val < 0 ? 0 : val;
-            saveUserData();
-        });
-
-        row.querySelector('.status-btn').addEventListener('click', (e) => {
-            const btn = e.target;
-            const isDone = currentData[index].status !== 'Done';
-            currentData[index].status = isDone ? 'Done' : 'Pending';
-            currentData[index].complete = isDone;
-            saveUserData();
+        <!-- Sidebar -->
+        <aside class="sidebar slide-in-left">
+            <div class="sidebar-header">
+                <div class="nav-brand">
+                    <div class="brand-icon"><i class="fas fa-wallet"></i></div>
+                    <h1>Budget Pro</h1>
+                </div>
+                <button class="mobile-close" id="mobile-menu-close"><i class="fas fa-times"></i></button>
+            </div>
             
-            // Visual Update locally without complete re-render
-            btn.className = `status-btn ${isDone ? 'status-done' : 'status-pending'}`;
-            btn.textContent = currentData[index].status;
-            row.querySelector('.complete-toggle').checked = isDone;
-            row.className = isDone ? 'row-done' : 'row-pending';
-        });
+            <ul class="sidebar-nav">
+                <li class="nav-item active"><a href="#"><i class="fas fa-chart-pie"></i> <span>Dashboard</span></a></li>
+                <li class="nav-item"><a href="#" id="download-csv-btn"><i class="fas fa-file-export"></i> <span>Export CSV</span></a></li>
+                <li class="nav-item"><a href="#" id="reset-month-btn" class="text-danger"><i class="fas fa-rotate-left"></i> <span>Reset Month</span></a></li>
+            </ul>
 
-        row.querySelector('.complete-toggle').addEventListener('change', (e) => {
-            const isDone = e.target.checked;
-            currentData[index].complete = isDone;
-            currentData[index].status = isDone ? 'Done' : 'Pending';
-            saveUserData();
-            
-            // Visual Update
-            const btn = row.querySelector('.status-btn');
-            btn.className = `status-btn ${isDone ? 'status-done' : 'status-pending'}`;
-            btn.textContent = currentData[index].status;
-            row.className = isDone ? 'row-done' : 'row-pending';
-        });
+            <div class="sidebar-spacer"></div>
 
-        row.querySelector('.delete-btn').addEventListener('click', () => {
-            currentData.splice(index, 1);
-            saveUserData();
-            renderTable(); // Safe here because element is removed
-        });
-    });
-}
+            <ul class="sidebar-nav bottom-nav">
+                <li class="nav-item"><a href="#" id="theme-toggle-btn"><i class="fas fa-moon"></i> <span id="theme-text">Dark Mode</span></a></li>
+                <li class="nav-item"><a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
+            </ul>
 
-// Math logic
-function updateCalculations() {
-    const currentData = appState.data[appState.currentMonth];
-    if(!currentData) return;
+            <div class="user-profile">
+                <div class="avatar"><i class="fas fa-user"></i></div>
+                <div class="user-details">
+                    <h4 id="display-user-name">User</h4>
+                    <span>Local Account</span>
+                </div>
+            </div>
+        </aside>
 
-    let totalPlanned = 0;
-    let totalActual = 0;
-    
-    currentData.forEach(item => {
-        totalPlanned += item.planned || 0;
-        totalActual += item.actual || 0;
-    });
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Mobile Header -->
+            <header class="mobile-header hide-desktop fade-in">
+                <button id="mobile-menu-open" class="btn-icon"><i class="fas fa-bars"></i></button>
+                <div class="brand-snug">Budget Pro</div>
+                <div class="avatar-sm"><i class="fas fa-user"></i></div>
+            </header>
 
-    const remainingBal = appState.globalSalary - totalActual;
-    const totalSavings = totalPlanned - totalActual;
+            <div class="content-padding">
+                
+                <!-- Page Header with Salary Input -->
+                <div class="page-header fade-in">
+                    <div>
+                        <h2 class="page-title">Overview</h2>
+                        <p class="page-subtitle">Track your spending for <span class="text-primary font-bold" id="current-month-text">January</span></p>
+                    </div>
+                    
+                    <div class="salary-editor glass-panel">
+                        <label for="monthly-salary"><i class="fas fa-money-bill-wave"></i> Set Monthly Income</label>
+                        <div class="currency-input">
+                            <span>₹</span>
+                            <input type="number" id="monthly-salary" value="15000">
+                        </div>
+                    </div>
+                </div>
 
-    animateValue('summary-planned', totalPlanned);
-    animateValue('summary-actual', totalActual);
-    animateValue('summary-balance', remainingBal);
-    animateValue('summary-savings', totalSavings);
+                <!-- Budget Progress -->
+                <div class="budget-progress-container fade-in delay-1">
+                    <div class="progress-labels">
+                        <span>Budget Consumed</span>
+                        <span id="progress-percent">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="budget-progress-bar"></div>
+                    </div>
+                </div>
 
-    // Contextual Styling
-    const balCard = document.getElementById('card-balance');
-    if (remainingBal < 0) {
-        balCard.classList.remove('theme-green');
-        balCard.classList.add('text-danger');
-        balCard.style.border = '1px solid var(--danger)';
-    } else {
-        balCard.classList.add('theme-green');
-        balCard.classList.remove('text-danger');
-        balCard.style.border = '';
-    }
+                <!-- Monthly Tabs -->
+                <div class="tabs-container fade-in delay-1">
+                    <button class="scroll-btn left"><i class="fas fa-chevron-left"></i></button>
+                    <div class="tabs-wrapper" id="months-tabs">
+                        <!-- JS injected tabs -->
+                    </div>
+                    <button class="scroll-btn right"><i class="fas fa-chevron-right"></i></button>
+                </div>
 
-    // Progress Bar Logic
-    const progressFill = document.getElementById('budget-progress-bar');
-    const progressPercentText = document.getElementById('progress-percent');
-    let percent = appState.globalSalary > 0 ? (totalActual / appState.globalSalary) * 100 : 0;
-    
-    // Cap visual percent at 100 for styling
-    let visualPercent = percent > 100 ? 100 : percent;
-    progressFill.style.width = `${visualPercent}%`;
-    progressPercentText.textContent = `${Math.round(percent)}%`;
-    
-    progressFill.classList.remove('warning', 'danger');
-    if (percent >= 100) {
-        progressFill.classList.add('danger');
-    } else if (percent >= 75) {
-        progressFill.classList.add('warning');
-    }
-}
+                <!-- Metrics Cards -->
+                <div class="metrics-grid fade-in delay-2">
+                    <div class="metric-card theme-purple">
+                        <div class="metric-icon"><i class="fas fa-piggy-bank"></i></div>
+                        <div class="metric-content">
+                            <span class="metric-label">Total Planned</span>
+                            <h3 class="metric-value counter" id="summary-planned">₹0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card theme-blue">
+                        <div class="metric-icon"><i class="fas fa-cart-arrow-down"></i></div>
+                        <div class="metric-content">
+                            <span class="metric-label">Actual Expenses</span>
+                            <h3 class="metric-value counter" id="summary-actual">₹0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card theme-green" id="card-balance">
+                        <div class="metric-icon"><i class="fas fa-wallet"></i></div>
+                        <div class="metric-content">
+                            <span class="metric-label">Remaining Balance</span>
+                            <h3 class="metric-value counter" id="summary-balance">₹15,000</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card theme-orange">
+                        <div class="metric-icon"><i class="fas fa-vault"></i></div>
+                        <div class="metric-content">
+                            <span class="metric-label">Projected Savings</span>
+                            <h3 class="metric-value counter" id="summary-savings">₹0</h3>
+                        </div>
+                    </div>
+                </div>
 
-function animateValue(id, value) {
-    const obj = document.getElementById(id);
-    const prefix = '₹';
-    // Simple direct update. Counters can be complex if rapid input.
-    obj.textContent = `${prefix}${value.toLocaleString()}`;
-}
+                <!-- Desktop Grid: Table + Chart -->
+                <div class="dashboard-grid fade-in delay-3">
+                    
+                    <!-- Editable Table Section -->
+                    <div class="table-card glass-panel">
+                        <div class="card-header">
+                            <h3><i class="fas fa-list-check"></i> Budget Categories</h3>
+                            <button id="add-expense-btn" class="btn btn-primary-soft btn-sm">
+                                <i class="fas fa-plus"></i> Add Row
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="budget-table">
+                                <thead>
+                                    <tr>
+                                        <th>Category (Editable)</th>
+                                        <th>Planned (₹)</th>
+                                        <th>Actual (₹)</th>
+                                        <th>Status</th>
+                                        <th>Done</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-body">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-// Chart Visualization
-function updateCharts() {
-    const data = appState.data[appState.currentMonth] || [];
-    const categories = data.map(i => i.category);
-    const actuals = data.map(i => i.actual || 0);
-    const planneds = data.map(i => i.planned || 0);
-    
-    const isDark = document.body.classList.contains('dark-mode');
-    const textColor = isDark ? '#f8fafc' : '#64748b';
-    const gridColor = isDark ? '#334155' : '#e2e8f0';
+                    <!-- Charts Section -->
+                    <div class="charts-column">
+                        <div class="chart-card glass-panel mb-4">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-pie"></i> Distribution</h3>
+                            </div>
+                            <div class="chart-wrapper chart-sm">
+                                <canvas id="doughnutChart"></canvas>
+                            </div>
+                        </div>
 
-    const isEmpty = categories.length === 0 || (actuals.every(v => v === 0) && planneds.every(v => v === 0));
+                        <div class="chart-card glass-panel">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-bar"></i> Planned vs Actual</h3>
+                            </div>
+                            <div class="chart-wrapper chart-sm">
+                                <canvas id="expenseChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-    handleEmptyState('expenseChart', isEmpty, 'No data to display. Add expenses to see the chart.');
-    handleEmptyState('doughnutChart', isEmpty, 'No data to display.');
+            </div>
+        </main>
+    </div>
 
-    if (isEmpty) return;
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
 
-    if (chartInstance) {
-        // Fast update
-        chartInstance.data.labels = categories;
-        chartInstance.data.datasets[0].data = actuals;
-        chartInstance.data.datasets[1].data = planneds;
-        
-        // Update theme options safely
-        if (chartInstance.options?.plugins?.legend?.labels) {
-            chartInstance.options.plugins.legend.labels.color = textColor;
-        }
-        if (chartInstance.options?.scales?.x?.ticks) {
-            chartInstance.options.scales.x.ticks.color = textColor;
-        }
-        if (chartInstance.options?.scales?.y?.ticks) {
-            chartInstance.options.scales.y.ticks.color = textColor;
-        }
-        if (chartInstance.options?.scales?.y?.grid) {
-            chartInstance.options.scales.y.grid.color = gridColor;
-        }
-        
-        chartInstance.update('none'); // Update without full animation for performance on typing
-    } else {
-        const ctx = document.getElementById('expenseChart').getContext('2d');
-        chartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: categories,
-                datasets: [
-                    { label: 'Actual Spending', data: actuals, backgroundColor: '#4f46e5', borderRadius: 6 },
-                    { label: 'Planned Amount', data: planneds, backgroundColor: isDark ? '#334155' : '#cbd5e1', borderRadius: 6 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { labels: { color: textColor, font: { family: 'Plus Jakarta Sans' } } } },
-                scales: {
-                    x: { ticks: { color: textColor, font: { family: 'Plus Jakarta Sans' } }, grid: { display: false } },
-                    y: { ticks: { color: textColor, font: { family: 'Plus Jakarta Sans' } }, grid: { color: gridColor } }
-                }
-            }
-        });
-    }
-
-    // Doughnut Chart Setup
-    if (doughnutChartInstance) {
-        doughnutChartInstance.data.labels = categories;
-        doughnutChartInstance.data.datasets[0].data = actuals;
-        if (doughnutChartInstance.options?.plugins?.legend?.labels) {
-            doughnutChartInstance.options.plugins.legend.labels.color = textColor;
-        }
-        doughnutChartInstance.update('none');
-    } else {
-        const ctxD = document.getElementById('doughnutChart').getContext('2d');
-        doughnutChartInstance = new Chart(ctxD, {
-            type: 'doughnut',
-            data: {
-                labels: categories,
-                datasets: [{
-                    data: actuals,
-                    backgroundColor: CHART_COLORS,
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'right', labels: { color: textColor, font: { family: 'Plus Jakarta Sans', size: 11 } } } },
-                cutout: '70%'
-            }
-        });
-    }
-}
-
-function handleEmptyState(canvasId, isEmpty, message) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    
-    let msgDiv = canvas.parentElement.querySelector('.chart-empty-msg');
-    
-    if (isEmpty) {
-        canvas.style.display = 'none';
-        if (!msgDiv) {
-            msgDiv = document.createElement('div');
-            msgDiv.className = 'chart-empty-msg';
-            msgDiv.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;color:#64748b;font-style:italic;text-align:center;padding:1rem;';
-            msgDiv.textContent = message;
-            canvas.parentElement.appendChild(msgDiv);
-        }
-        msgDiv.style.display = 'flex';
-    } else {
-        canvas.style.display = 'block';
-        if (msgDiv) msgDiv.style.display = 'none';
-    }
-}
-
-// CSV Export
-function downloadCSV() {
-    const data = appState.data[appState.currentMonth];
-    let csvData = 'Category,Planned,Actual,Status\n';
-    
-    const escapeCSV = str => '"' + String(str).replace(/"/g, '""') + '"';
-
-    data.forEach(item => {
-        csvData += `${escapeCSV(item.category)},${item.planned},${item.actual},${escapeCSV(item.status)}\n`;
-    });
-    
-    const blob = new Blob([csvData], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${activeUser.username}_budget_${appState.currentMonth}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-}
-
-// Toast Notifier
-function showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    
-    const icon = type === 'success' ? '<i class="fas fa-check-circle" style="color:#10b981"></i>' : '<i class="fas fa-exclamation-circle" style="color:var(--danger)"></i>';
-    toast.innerHTML = `${icon} <span>${message}</span>`;
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.classList.add('hide');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-
-// Boot up
-window.addEventListener('DOMContentLoaded', init);
+    <script src="script.js"></script>
+</body>
+</html>
