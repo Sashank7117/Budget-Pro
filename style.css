@@ -337,13 +337,13 @@ tr.row-pending td { border-left: 3px solid var(--danger); box-shadow: inset 3px 
     .input-wrapper input, .currency-input input { min-height: 44px; }
     .td-input { width: 100%; min-height: 44px; text-align: right; }
     
-    .sidebar { position: fixed; transform: translateX(-100%); z-index: 100; height: 100vh; animation: none; }
-    .sidebar.open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
+    .sidebar { position: fixed !important; transform: translateX(-100%) !important; z-index: 100; height: 100vh; animation: none !important; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; }
+    .sidebar.open { transform: translateX(0) !important; box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
     
     .layout-wrapper { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     .main-content { flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 40px; }
     .mobile-header { display: flex; }
-    .mobile-close { display: block; }
+    .mobile-close { display: block; padding: 12px; margin: -12px; }
     .content-padding { padding: 16px; }
     
     .page-header { flex-direction: column; align-items: stretch; gap: 16px; }
@@ -364,7 +364,7 @@ tr.row-pending td { border-left: 3px solid var(--danger); box-shadow: inset 3px 
     .budget-table td { 
         display: flex; justify-content: space-between; align-items: center; 
         padding: 10px 0; border: none !important; border-bottom: 1px solid var(--border-color) !important;
-        background: transparent !important;
+        background: transparent !important; box-shadow: none !important;
     }
     .budget-table td:last-child { border-bottom: none !important; padding-bottom: 0; }
     .budget-table td:first-child { padding-top: 0; border-radius: 0; }
