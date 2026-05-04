@@ -103,13 +103,18 @@
                 
                 <!-- Page Header with Salary Input -->
                 <div class="page-header fade-in">
-                    <div>
+                    <div class="header-titles">
                         <h2 class="page-title">Overview</h2>
-                        <p class="page-subtitle">Track your spending for <span class="text-primary font-bold" id="current-month-text">January</span></p>
+                        <div class="month-selector-wrapper">
+                            <i class="fas fa-calendar-alt"></i>
+                            <select id="month-selector" class="month-dropdown">
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
                     </div>
                     
                     <div class="salary-editor glass-panel">
-                        <label for="monthly-salary"><i class="fas fa-money-bill-wave"></i> Set Monthly Income</label>
+                        <label for="monthly-salary"><i class="fas fa-money-bill-wave"></i> Monthly Income</label>
                         <div class="currency-input">
                             <span>₹</span>
                             <input type="number" id="monthly-salary" value="15000">
@@ -128,14 +133,7 @@
                     </div>
                 </div>
 
-                <!-- Monthly Tabs -->
-                <div class="tabs-container fade-in delay-1">
-                    <button class="scroll-btn left"><i class="fas fa-chevron-left"></i></button>
-                    <div class="tabs-wrapper" id="months-tabs">
-                        <!-- JS injected tabs -->
-                    </div>
-                    <button class="scroll-btn right"><i class="fas fa-chevron-right"></i></button>
-                </div>
+
 
                 <!-- Metrics Cards -->
                 <div class="metrics-grid fade-in delay-2">
