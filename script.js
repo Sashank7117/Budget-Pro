@@ -13,6 +13,7 @@ let appState = {
     theme: 'light',
     currentMonth: MONTHS[new Date().getMonth()],
     globalSalary: 15000,
+    categories: [],
     data: {} 
     // Format: { 'January': [{ id, category, planned, actual, status, complete }], ... }
 };
@@ -106,6 +107,15 @@ function loadUserData() {
         const parsed = JSON.parse(saved);
         appState.globalSalary = parsed.globalSalary || 15000;
         appState.theme = parsed.theme || 'light';
+        
+        if (parsed.categories) {
+            appState.categories = parsed.categories;
+        } else if (parsed.data && parsed.data[appState.currentMonth]) {
+            appState.categories = parsed.data[appState.currentMonth].map(item => item.category);
+        } else {
+            appState.categories = [...DEFAULT_CATEGORIES];
+        }
+
         appState.data = parsed.data || {};
         
         // Ensure all months exist
@@ -114,6 +124,7 @@ function loadUserData() {
         });
     } else {
         appState.globalSalary = 15000;
+        appState.categories = [...DEFAULT_CATEGORIES];
         appState.data = {};
         MONTHS.forEach(m => initializeMonthStructure(m));
         saveUserData();
@@ -121,12 +132,12 @@ function loadUserData() {
     
     applyTheme();
     document.getElementById('monthly-salary').value = appState.globalSalary;
-    renderTabs();
+    renderMonthDropdown();
     updateDashboardUI();
 }
 
 function initializeMonthStructure(monthName) {
-    appState.data[monthName] = DEFAULT_CATEGORIES.map((cat, index) => ({
+    appState.data[monthName] = appState.categories.map((cat, index) => ({
         id: `item-${Date.now()}-${index}`,
         category: cat,
         planned: 0,
@@ -142,6 +153,7 @@ function saveUserData() {
     localStorage.setItem(getUserStorageKey(), JSON.stringify({
         globalSalary: appState.globalSalary,
         theme: appState.theme,
+        categories: appState.categories,
         data: appState.data
     }));
     updateCalculations();
@@ -253,28 +265,299 @@ function setupEventListeners() {
         downloadCSV();
     });
 
-    // Add New Row
-    document.getElementById('add-expense-btn').addEventListener('click', () => {
-        const monthData = appState.data[appState.currentMonth];
-        monthData.push({
-            id: `item-${Date.now()}`,
-            category: 'New Category',
-            planned: 0, actual: 0, status: 'Pending', complete: false
+    // Manage Categories Modal
+    const manageCategoriesBtn = document.getElementById('manage-categories-btn');
+    const categoryModal = document.getElementById('category-modal');
+    const closeCategoryModal = document.getElementById('close-category-modal');
+    const addCategoryBtn = document.getElementById('add-category-btn');
+    const newCategoryInput = document.getElementById('new-category-input');
+
+    if (manageCategoriesBtn) {
+        manageCategoriesBtn.addEventListener('click', () => {
+            renderCategoryModal();
+            categoryModal.classList.remove('hidden');
         });
-        saveUserData();
-        renderTable(); 
-        showToast('New row added.', 'success');
+    }
+
+    if (closeCategoryModal) {
+        closeCategoryModal.addEventListener('click', () => {
+            categoryModal.classList.add('hidden');
+        });
+    }
+
+    if (addCategoryBtn) {
+        addCategoryBtn.addEventListener('click', () => {
+            const newCat = newCategoryInput.value.trim();
+            if (!newCat) return showToast('Category name cannot be empty', 'error');
+            
+            // Check for duplicates
+            if (appState.categories.some(c => c.toLowerCase() === newCat.toLowerCase())) {
+                return showToast('Category already exists', 'error');
+            }
+
+            // Add to global categories
+            appState.categories.push(newCat);
+            
+            // Sync to all months
+            MONTHS.forEach(m => {
+                if (appState.data[m]) {
+                    appState.data[m].push({
+                        id: `item-${Date.now()}-${appState.categories.length}`,
+                        category: newCat,
+                        planned: 0,
+                        actual: 0,
+                        status: 'Pending',
+                        complete: false
+                    });
+                }
+            });
+
+            saveUserData();
+            newCategoryInput.value = '';
+            renderCategoryModal();
+            renderTable();
+            showToast('Category added to all months', 'success');
+        });
+    }
+
+    // Also close modal on overlay click
+    if (categoryModal) {
+        categoryModal.addEventListener('click', (e) => {
+            if (e.target === categoryModal) {
+                categoryModal.classList.add('hidden');
+            }
+        });
+    }
+
+    // Calculator Logic
+    const calculatorBtn = document.getElementById('calculator-btn');
+    const calculatorModal = document.getElementById('calculator-modal');
+    const closeCalculatorModal = document.getElementById('close-calculator-modal');
+    const calcDisplay = document.getElementById('calc-display');
+    const calcBtns = document.querySelectorAll('.calc-btn');
+
+    let calcExpression = '';
+
+    function updateCalcDisplay() {
+        if (!calcDisplay) return;
+        calcDisplay.value = calcExpression || '0';
+    }
+
+    if (calculatorBtn) {
+        calculatorBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            calculatorModal.classList.remove('hidden');
+        });
+    }
+
+    if (closeCalculatorModal) {
+        closeCalculatorModal.addEventListener('click', () => {
+            calculatorModal.classList.add('hidden');
+        });
+    }
+
+    if (calculatorModal) {
+        calculatorModal.addEventListener('click', (e) => {
+            if (e.target === calculatorModal) {
+                calculatorModal.classList.add('hidden');
+            }
+        });
+    }
+
+    calcBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const action = btn.dataset.action;
+            const val = btn.dataset.val;
+
+            if (action === 'clear') {
+                calcExpression = '';
+            } else if (action === 'backspace') {
+                calcExpression = calcExpression.slice(0, -1);
+            } else if (action === 'calculate') {
+                try {
+                    // Safe evaluation
+                    // Prevent empty or invalid trailing operators
+                    if (/[\+\-\*\/]$/.test(calcExpression)) {
+                        calcExpression = calcExpression.slice(0, -1);
+                    }
+                    // Basic divide by zero check (e.g. /0 )
+                    if (calcExpression.match(/\/0(?!\.)/)) {
+                        throw new Error('Divide by zero');
+                    }
+                    if (calcExpression) {
+                        const result = new Function('return (' + calcExpression + ')')();
+                        // Round to 4 decimal places to avoid floating point issues
+                        calcExpression = String(Math.round(result * 10000) / 10000);
+                    }
+                } catch (err) {
+                    showToast('Invalid Expression', 'error');
+                    calcExpression = '';
+                }
+            } else {
+                // Number or operator or decimal
+                // Prevent duplicate operators
+                if (val === '.') {
+                    const parts = calcExpression.split(/[\+\-\*\/]/);
+                    if (parts[parts.length - 1].includes('.')) return;
+                }
+                
+                if (/[\+\-\*\/]/.test(val)) {
+                    if (calcExpression === '' && val !== '-') return; // Only allow - at start
+                    if (/[\+\-\*\/]$/.test(calcExpression)) {
+                        // Replace last operator
+                        calcExpression = calcExpression.slice(0, -1) + val;
+                        updateCalcDisplay();
+                        return;
+                    }
+                }
+                calcExpression += val;
+            }
+            updateCalcDisplay();
+        });
     });
 
-    // Tab Scrolling
-    const tabsWrapper = document.getElementById('months-tabs');
-    document.querySelector('.scroll-btn.left').addEventListener('click', () => tabsWrapper.scrollBy({left: -200, behavior: 'smooth'}));
-    document.querySelector('.scroll-btn.right').addEventListener('click', () => tabsWrapper.scrollBy({left: 200, behavior: 'smooth'}));
+    // Keyboard support for calculator
+    document.addEventListener('keydown', (e) => {
+        if (!calculatorModal || calculatorModal.classList.contains('hidden')) return;
+        
+        const key = e.key;
+        if (/[0-9\+\-\*\/\.]/.test(key)) {
+            e.preventDefault();
+            const btn = Array.from(calcBtns).find(b => b.dataset.val === key);
+            if (btn) btn.click();
+        } else if (key === 'Enter' || key === '=') {
+            e.preventDefault();
+            const btn = Array.from(calcBtns).find(b => b.dataset.action === 'calculate');
+            if (btn) btn.click();
+        } else if (key === 'Backspace') {
+            e.preventDefault();
+            const btn = Array.from(calcBtns).find(b => b.dataset.action === 'backspace');
+            if (btn) btn.click();
+        } else if (key === 'Escape') {
+            closeCalculatorModal.click();
+        } else if (key.toLowerCase() === 'c') {
+            e.preventDefault();
+            const btn = Array.from(calcBtns).find(b => b.dataset.action === 'clear');
+            if (btn) btn.click();
+        }
+    });
+
+    // Month Dropdown Change
+    const monthSelector = document.getElementById('month-selector');
+    if (monthSelector) {
+        monthSelector.addEventListener('change', (e) => {
+            appState.currentMonth = e.target.value;
+            // Add a small fade out/in effect for UX
+            const grid = document.querySelector('.dashboard-grid');
+            const metrics = document.querySelector('.metrics-grid');
+            if (grid && metrics) {
+                grid.style.opacity = '0';
+                metrics.style.opacity = '0';
+                setTimeout(() => {
+                    updateDashboardUI();
+                    grid.style.opacity = '1';
+                    metrics.style.opacity = '1';
+                }, 150);
+            } else {
+                updateDashboardUI();
+            }
+        });
+    }
 }
 
 // ==========================================
 // UI Rendering
 // ==========================================
+function renderCategoryModal() {
+    const list = document.getElementById('category-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    appState.categories.forEach((cat, index) => {
+        const li = document.createElement('li');
+        li.className = 'category-item';
+        
+        li.innerHTML = `
+            <input type="text" class="category-name-input" value="${cat}" data-original="${cat}">
+            <div class="category-actions">
+                <button class="btn-icon delete-cat-btn" title="Delete Category"><i class="fas fa-trash-alt"></i></button>
+            </div>
+        `;
+        list.appendChild(li);
+
+        const input = li.querySelector('.category-name-input');
+        const deleteBtn = li.querySelector('.delete-cat-btn');
+
+        // Handle Edit
+        input.addEventListener('blur', (e) => {
+            const newName = e.target.value.trim();
+            const originalName = e.target.dataset.original;
+            
+            if (!newName) {
+                e.target.value = originalName;
+                return showToast('Category name cannot be empty', 'error');
+            }
+            
+            if (newName.toLowerCase() !== originalName.toLowerCase() && 
+                appState.categories.some(c => c.toLowerCase() === newName.toLowerCase())) {
+                e.target.value = originalName;
+                return showToast('Category already exists', 'error');
+            }
+
+            if (newName !== originalName) {
+                // Update global categories
+                appState.categories[index] = newName;
+                
+                // Sync across all months
+                MONTHS.forEach(m => {
+                    if (appState.data[m]) {
+                        appState.data[m].forEach(item => {
+                            if (item.category === originalName) {
+                                item.category = newName;
+                            }
+                        });
+                    }
+                });
+                
+                saveUserData();
+                renderTable();
+                e.target.dataset.original = newName;
+                showToast('Category updated', 'success');
+            }
+        });
+
+        // Handle Delete
+        deleteBtn.addEventListener('click', () => {
+            Swal.fire({
+                title: 'Delete Category?',
+                text: `Remove "${cat}" from ALL months? This cannot be undone.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Remove from global
+                    appState.categories.splice(index, 1);
+                    
+                    // Remove from all months
+                    MONTHS.forEach(m => {
+                        if (appState.data[m]) {
+                            appState.data[m] = appState.data[m].filter(item => item.category !== cat);
+                        }
+                    });
+                    
+                    saveUserData();
+                    renderCategoryModal();
+                    renderTable();
+                    showToast('Category deleted', 'success');
+                }
+            });
+        });
+    });
+}
+
 function applyTheme() {
     const isDark = appState.theme === 'dark';
     if(isDark) {
@@ -289,32 +572,27 @@ function applyTheme() {
     if (chartInstance) updateCharts();
 }
 
-function renderTabs() {
-    const tabsContainer = document.getElementById('months-tabs');
-    tabsContainer.innerHTML = '';
+function renderMonthDropdown() {
+    const selector = document.getElementById('month-selector');
+    if (!selector) return;
     
+    selector.innerHTML = '';
     MONTHS.forEach(month => {
-        const btn = document.createElement('button');
-        btn.className = `tab-btn ${appState.currentMonth === month ? 'active' : ''}`;
-        btn.textContent = month;
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            appState.currentMonth = month;
-            updateDashboardUI();
-        });
-        tabsContainer.appendChild(btn);
+        const option = document.createElement('option');
+        option.value = month;
+        option.textContent = month;
+        if (month === appState.currentMonth) {
+            option.selected = true;
+        }
+        selector.appendChild(option);
     });
-    
-    // Auto scroll to active tab
-    setTimeout(() => {
-        const activeTab = tabsContainer.querySelector('.active');
-        if(activeTab) activeTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }, 100);
 }
 
 function updateDashboardUI() {
-    document.getElementById('current-month-text').textContent = appState.currentMonth;
+    const monthSelector = document.getElementById('month-selector');
+    if(monthSelector && monthSelector.value !== appState.currentMonth) {
+        monthSelector.value = appState.currentMonth;
+    }
     renderTable();
     updateCalculations();
 }
@@ -331,7 +609,7 @@ function renderTable() {
         row.dataset.index = index;
         
         row.innerHTML = `
-            <td class="td-category" contenteditable="true" spellcheck="false" title="Click to edit" data-label="Category">${item.category}</td>
+            <td class="td-category" data-label="Category">${item.category}</td>
             <td data-label="Planned">
                 <input type="number" min="0" class="td-input input-planned" value="${item.planned || 0}">
             </td>
@@ -351,11 +629,6 @@ function renderTable() {
         tbody.appendChild(row);
 
         // Bind inner listeners (Delegation could be used, but this is fine for ~10 rows)
-        const catNode = row.querySelector('.td-category');
-        catNode.addEventListener('blur', (e) => {
-            currentData[index].category = e.target.textContent.trim() || 'Unnamed';
-            saveUserData();
-        });
 
         row.querySelector('.input-planned').addEventListener('input', (e) => {
             const val = parseFloat(e.target.value);
@@ -397,9 +670,22 @@ function renderTable() {
         });
 
         row.querySelector('.delete-btn').addEventListener('click', () => {
-            currentData.splice(index, 1);
-            saveUserData();
-            renderTable(); // Safe here because element is removed
+            Swal.fire({
+                title: 'Delete Expense Row?',
+                text: `Are you sure you want to remove this expense row for the current month? Note: This does not delete the category globally.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Yes, remove it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    currentData.splice(index, 1);
+                    saveUserData();
+                    renderTable(); 
+                    showToast('Row removed.', 'success');
+                }
+            });
         });
     });
 }
